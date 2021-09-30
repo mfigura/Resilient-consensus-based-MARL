@@ -23,12 +23,25 @@ of adversarial agents assumed to be present in the network. We consider four sce
 4) One agent is malicious as it maximizes its own returns and minimizes the cooperative team's returns. It has knowledge of other agents' rewards and
 updates two critic estimates (one critic is used to improve the adversary's policy and the other to hurt the cooperative agents' performance).
 
-<img src="https://github.com/asokraju/Adv-MARL/blob/batch_training/simulation_results/All_cooperative2/sim_results.png" width="2000" align="right">
+The simulation results are presented below. They show the true returns of both the adversary and cooperative agents as well as the estimated returns of the cooperative agents.
 
-<img src="https://github.com/asokraju/Adv-MARL/blob/batch_training/simulation_results/Adversary1/sim_results.png" width="2000" align="right">
+### 1) All cooperative
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/coop_h0.png" width="300" align="left">
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/coop_h1.png" width="300" >
 
-The simulation results demonstrate great performance of the RPBCAC. The cooperative agents successfully achieve their learning goals in spite of the adversarial
-attacks.
+### 2) Three cooperative + one greedy
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/greedy_h0.png" width="300" align="left">
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/greedy_h1.png" width="300" >
+
+### 3) Three cooperative + one faulty
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/faulty_h0.png" width="300" align="left">
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/faulty_h1.png" width="300" >
+
+### 4) Three cooperative + one malicious
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/malicious_h0.png" width="300" align="left">
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/malicious_h1.png" width="300" >
+
+The simulation results demonstrate great performance of the RPBCAC with H=1 (right) compared to the non-resilient case with H=0 (left). The cooperative agents successfully achieve their learning goals in spite of the adversarial attacks.
 
 ## References
 

@@ -9,8 +9,7 @@ class Resilient_CAC_agent():
     is a realization of temporal difference learning with one-step lookahead, also known as TD(0). It is an instance
     of decentralized learning, where each agent receives its own reward and observes the global state and action. The RCAC agent
     seeks to maximize a team-average objective function of the cooperative agents in the presence of adversaries. The RCAC agent
-    employs neural networks to approximate the actor, critic, and team-average reward function. The current implementation assumes
-    that the hidden layer parameters of the critic and team-average reward function are fixed and the same for all agents.
+    employs neural networks to approximate the actor, critic, and team-average reward function.
 
     The updates are divided into four parts.
 

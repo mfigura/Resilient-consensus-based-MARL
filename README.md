@@ -5,7 +5,7 @@ and focus on training performance of cooperative agents in the presence of adver
 results presented in the paper and prevent adversarial attacks that can arbitrarily hurt cooperative network performance 
 including the one studied in [[2]](#2). The repository contains folders whose description is provided below:
 
-1) agents - contains RPBCAC and adversarial agents
+1) agents - contains resilient and adversarial agents
 2) environments - contains a grid world environment for the cooperative navigation task
 3) simulation_results - contains plots that show training performance
 4) training - contains functions for training agents
@@ -22,7 +22,7 @@ of adversarial agents that are assumed to be present in the network. We consider
 3) One agent is faulty and does not have a well-defined objective. It shares fixed parameter values with other agents.
 4) One agent is strategic; it maximizes its own returns and leads the cooperative agents to minimize their returns. The strategic agent has knowledge of other agents' rewards and updates two critic estimates (one critic is used to improve the adversary's policy and the other to hurt the cooperative agents' performance).
 
-The simulation results are presented below. They include the true returns of both the adversary and cooperative agents.
+The simulation results below demonstrate very good performance of the RPBCAC with H=1 (right) compared to the non-resilient case with H=0 (left). The performance is measured by the episode returns.
 
 ### 1) All cooperative
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/coop_h0.png" width="300" align="left">
@@ -40,7 +40,7 @@ The simulation results are presented below. They include the true returns of bot
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/malicious_h0.png" width="300" align="left">
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/malicious_h1.png" width="300" >
 
-The simulation results demonstrate great performance of the RPBCAC with H=1 (right) compared to the non-resilient case with H=0 (left). The cooperative agents successfully achieve their learning goals in spite of the adversarial attacks.
+The folder with resilient agents contains the RPBCAC agent as well as an agent that applies the method of trimmed means in the consensus updates (RTMCAC).
 
 ## References
 

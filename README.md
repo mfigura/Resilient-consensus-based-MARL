@@ -16,7 +16,7 @@ To train agents and plot results, execute main.py and plot_results.py, respectiv
 We train five agents in a grid-world environment. Their original goal is to approach their desired position without colliding with other agents in the network.
 We design a grid world of dimension (6 x 6) and consider a reward function that penalizes the agents for distance from the target and colliding with other agents.
 
-<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/illustrations/cooperative_navigation.jpg" width="300" align="left">
+<img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/illustrations/cooperative_navigation.jpg" width="440" align="left">
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/illustrations/com_graph.jpg" width="300" >
 
 We compare the cooperative network performance under the RPBCAC algorithm with the trimming parameter H=0 and H=1, which corresponds to the number

@@ -94,7 +94,7 @@ class Grid_World(gym.Env):
             #dist = np.sum(abs(self.state[node]-self.desired_state[node]))
             dist_next = np.sum(abs(new_s[node]-self.desired_state[node]))                               #Compute Manhattan distance to the target at future state
             self.reward[node] = (- dist_next                                                         #Reward for reaching the target
-                                 - 0.5*int(collision)*dist_next                                                  #Penalty for collision
+                                 - int(collision)                                                  #Penalty for collision
                                 )
         self.state = new_s
         self.done = np.array_equal(self.state, self.desired_state)

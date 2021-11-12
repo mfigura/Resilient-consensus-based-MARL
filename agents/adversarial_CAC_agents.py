@@ -41,23 +41,17 @@ class Faulty_CAC_agent():
 
         return actor_loss
 
-    def get_fixed_critic(self):
+    def get_critic_weights(self):
         '''
-        Returns critic hidden and output layer parameters and average loss
+        Returns critic parameters and average loss
         '''
-        critic_vars = [tf.identity(item) for item in self.critic.trainable_variables]
-        critic_loss = 0
+        return self.critic.get_weights()
 
-        return critic_vars[:-2], critic_vars[-2:], critic_loss
-
-    def get_fixed_TR(self):
+    def get_TR_weights(self):
         '''
-        Returns team-average reward hidden and output layer parameters and average loss
+        Returns team-average reward parameters
         '''
-        TR_vars = [tf.identity(item) for item in self.TR.trainable_variables]
-        TR_loss = 0
-
-        return TR_vars[:-2], TR_vars[-2:], TR_loss
+        return self.TR.get_weights()
 
     def get_action(self,state,from_policy=False,mu=0.1):
         '''Choose an action at the current state
@@ -75,7 +69,6 @@ class Faulty_CAC_agent():
             self.action = random_action
 
         return self.action
-
 
 class Malicious_CAC_agent():
     '''
@@ -122,7 +115,7 @@ class Malicious_CAC_agent():
 
         return actor_loss
 
-    def critic_update_compromised(self,states,new_states,compromised_rewards,reset=False):
+    def critic_update_compromised(self,states,new_states,compromised_rewards):
         '''
         Stochastic update of the team critic network
         - performs an update of the team critic network
@@ -132,22 +125,17 @@ class Malicious_CAC_agent():
                     boolean to reset parameters to prior values
         RETURNS: updated compromised critic hidden and output layer parameters, training loss
         '''
-        critic_weights_temp = self.critic.get_weights()
         nV_team = self.critic(new_states).numpy()
         TD_targets_team = compromised_rewards+self.gamma*nV_team
         with tf.GradientTape() as tape:
             V_team = self.critic(states)
             critic_loss_team = self.mse(TD_targets_team,V_team)
-        critic_grad = tape.gradient(critic_loss_team,self.critic.trainable_variables)
-        self.optimizer_fast.apply_gradients(zip(critic_grad, self.critic.trainable_variables))
+        critic_grad = tape.gradient(critic_loss_team,self.critic.trainable_weights)
+        self.optimizer_fast.apply_gradients(zip(critic_grad, self.critic.trainable_weights))
 
-        critic_vars = [tf.identity(item) for item in self.critic.trainable_variables]
-        if reset == True:
-            self.critic.set_weights(critic_weights_temp)
+        return self.critic.get_weights()
 
-        return critic_vars[:-2], critic_vars[-2:], critic_loss_team
-
-    def critic_update(self,states,new_states,local_rewards):
+    def critic_update_local(self,states,new_states,local_rewards):
         '''
         Local stochastic update of the critic network
         - performs a stochastic update of the critic network using local rewards
@@ -160,10 +148,10 @@ class Malicious_CAC_agent():
         with tf.GradientTape() as tape:
             V_local = self.critic_local(states)
             critic_loss_local = self.mse(TD_targets_local,V_local)
-        critic_grad_local = tape.gradient(critic_loss_local,self.critic_local.trainable_variables)
-        self.optimizer_fast.apply_gradients(zip(critic_grad_local, self.critic_local.trainable_variables))
+        critic_grad_local = tape.gradient(critic_loss_local,self.critic_local.trainable_weights)
+        self.optimizer_fast.apply_gradients(zip(critic_grad_local, self.critic_local.trainable_weights))
 
-    def TR_update_compromised(self,states,team_actions,compromised_rewards,reset=False):
+    def TR_update_compromised(self,states,team_actions,compromised_rewards):
         '''
         Stochastic update of the team reward network
         - performs a single batch update of the team reward network
@@ -177,14 +165,10 @@ class Malicious_CAC_agent():
         with tf.GradientTape() as tape:
             team_r = self.TR(sa)
             TR_loss = self.mse(compromised_rewards,team_r)
-        TR_grad = tape.gradient(TR_loss,self.TR.trainable_variables)
-        self.optimizer_fast.apply_gradients(zip(TR_grad, self.TR.trainable_variables))
+        TR_grad = tape.gradient(TR_loss,self.TR.trainable_weights)
+        self.optimizer_fast.apply_gradients(zip(TR_grad, self.TR.trainable_weights))
 
-        TR_train_vars = [tf.identity(item) for item in self.TR.trainable_variables]
-        if reset == True:
-            self.TR.set_weights(TR_weights_temp)
-
-        return TR_train_vars[:-2], TR_train_vars[-2:], TR_loss
+        return self.TR.get_weights()
 
     def get_action(self,state,from_policy=False,mu=0.1):
         '''Choose an action at the current state
@@ -202,7 +186,6 @@ class Malicious_CAC_agent():
             self.action = random_action
 
         return self.action
-
 
 class Greedy_CAC_agent():
     '''
@@ -264,18 +247,15 @@ class Greedy_CAC_agent():
         nV = self.critic(new_state).numpy()
         local_TD_target=local_reward+self.gamma*nV
         with tf.GradientTape(persistent=True) as tape:
-            tape.watch(self.critic.trainable_variables)
+            tape.watch(self.critic.trainable_weights)
             V = self.critic(state)
             critic_loss = self.mse(local_TD_target,V)
-        self.critic_grad = tape.gradient(V,self.critic.trainable_variables)
-        critic_mse_grad = tape.gradient(critic_loss,self.critic.trainable_variables)
+        self.critic_grad = tape.gradient(V,self.critic.trainable_weights)
+        critic_mse_grad = tape.gradient(critic_loss,self.critic.trainable_weights)
 
-        self.optimizer_fast.apply_gradients(zip(critic_mse_grad, self.critic.trainable_variables))
-        critic_vars = [tf.identity(item) for item in self.critic.trainable_variables]
-        if reset == True:
-            self.critic.set_weights(critic_weights_temp)
+        self.optimizer_fast.apply_gradients(zip(critic_mse_grad, self.critic.trainable_weights))
 
-        return critic_vars[:-2],critic_vars[-2:],critic_loss
+        return self.critic.get_weights()
 
     def TR_update_local(self,state,team_action,local_reward,reset=False):
         '''
@@ -291,18 +271,151 @@ class Greedy_CAC_agent():
         TR_weights_temp = self.TR.get_weights()
         sa = np.concatenate((state,team_action),axis=1)
         with tf.GradientTape(persistent=True) as tape:
-            tape.watch(self.TR.trainable_variables)
+            tape.watch(self.TR.trainable_weights)
             team_r = self.TR(sa)
             TR_loss = self.mse(local_reward,team_r)
-        self.TR_grad = tape.gradient(team_r,self.TR.trainable_variables)
-        TR_mse_grad = tape.gradient(TR_loss,self.TR.trainable_variables)
+        self.TR_grad = tape.gradient(team_r,self.TR.trainable_weights)
+        TR_mse_grad = tape.gradient(TR_loss,self.TR.trainable_weights)
 
-        self.optimizer_fast.apply_gradients(zip(TR_mse_grad, self.TR.trainable_variables))
-        TR_vars = [tf.identity(item) for item in self.TR.trainable_variables]
-        if reset == True:
-            self.TR.set_weights(TR_weights_temp)
+        self.optimizer_fast.apply_gradients(zip(TR_mse_grad, self.TR.trainable_weights))
 
-        return TR_vars[:-2],TR_vars[-2:],TR_loss
+        return self.TR.get_weights()
+
+    def get_action(self,state,from_policy=False,mu=0.1):
+        '''Choose an action at the current state
+            - set from_policy to True to sample from the actor
+            - set from_policy to False to sample from the random uniform distribution over actions
+            - set mu to [0,1] to control probability of choosing a random action
+        '''
+        random_action = np.random.choice(self.n_actions)
+        if from_policy==True:
+            state = np.array(state).reshape(1,-1)
+            action_prob = self.actor.predict(state)
+            action_from_policy = np.random.choice(self.n_actions, p = action_prob[0])
+            self.action = np.random.choice([action_from_policy,random_action], p = [1-mu,mu])
+        else:
+            self.action = random_action
+
+        return self.action
+
+class Byzantine_CAC_agent():
+    '''
+    BYZANTINE CONSENSUS ACTOR-CRITIC AGENT
+    This is an implementation of the Byzantine consensus actor-critic (BCAC) agent that is trained simultaneously with the resilient
+    consensus actor-critic (RCAC) agents. The algorithm is a realization of temporal difference learning with one-step lookahead.
+    The BCAC agent receives a local reward, and observes the global state and action. The BCAC agent seeks to maximize its own
+    objective function and prevent learning of cooperative agents by attacking individual parameters in the output layers of their
+    team-average function approximators. The attacks are causal as the agent has full knowledge of the updated values of the reliable
+    agents. The BCAC agents employs neural networks to approximate the actor and critic for its individual training goals. For the
+    actor updates, the agents uses the local rewards and critic. The BCAC agent does not apply consensus updates.
+
+    ARGUMENTS: NN models for actor and critic, and team reward
+               slow learning rate (for the actor network)
+               fast learning rate (for the critic and team reward networks)
+               discount factor gamma
+    '''
+    def __init__(self,actor,critic_local,critic,team_reward,slow_lr,fast_lr,gamma=0.95):
+        self.actor = actor
+        self.critic_local = critic_local
+        self.critic = critic
+        self.TR = team_reward
+        self.gamma = gamma
+        self.n_actions=self.actor.output_shape[1]
+
+        self.fast_lr = fast_lr
+        self.optimizer_fast=keras.optimizers.SGD(learning_rate=fast_lr)
+        self.mse = keras.losses.MeanSquaredError()
+        self.actor.compile(optimizer=keras.optimizers.Adam(learning_rate=slow_lr),loss=keras.losses.SparseCategoricalCrossentropy())
+        self.critic_feature_extractor = keras.Model(inputs=self.critic.inputs,outputs=self.critic.layers[-1].output)
+        self.TR_feature_extractor = keras.Model(inputs=self.TR.inputs,outputs=self.TR.layers[-1].output)
+
+    def actor_update(self,states,new_states,local_rewards,local_actions):
+        '''
+        Stochastic update of the actor network
+        - performs a single batch update of the actor
+        - computes TD errors with a one-step lookahead
+        - applies the TD errors as sample weights for the cross-entropy gradient
+        ARGUMENTS: visited states, agent's rewards and actions
+        RETURNS: training loss
+        '''
+        V = self.critic_local(states).numpy()
+        nV = self.critic_local(new_states).numpy()
+        local_TD_error=local_rewards+self.gamma*nV-V
+        actor_loss = self.actor.train_on_batch(states,local_actions,sample_weight=local_TD_error)
+
+        return actor_loss
+
+    def critic_attack(self,state,critic_innodes):
+        '''
+        A causal attack on the critic parameters
+        - selects a neighbor at random and assigns the neighbor's values to its own hidden layer parameters
+        - chooses output layer parameters that will be accepted by neighbors and yield the highest possible critic estimate
+        ARGUMENTS: critic parameters from neighbors
+        RETURNS: critic parameters
+        '''
+        random_neighbor = np.random.choice(len(critic_innodes))
+        self.critic.set_weights(critic_innodes[random_neighbor])
+        mean_feature_vector = [np.mean(self.critic_feature_extractor(state).numpy(),axis=0),np.array(1)]
+        critic_max =[]
+
+        for i,layer in enumerate(mean_feature_vector):
+            critic_vector = np.stack([item[-2+i]*layer for item in critic_innodes])
+            critic_max.append(np.amax(critic_vector, axis=0))
+        self.critic.layers[-1].set_weights(critic_max)
+
+        return self.critic.get_weights()
+
+    def TR_attack(self,state,team_action,TR_innodes):
+        '''
+        A causal attack on the team reward parameters
+        - selects a neighbor at random and assigns the neighbor's values to its own hidden layer parameters
+        - chooses output layer parameters that will be accepted by neighbors and yield the lowest TR estimate
+        ARGUMENTS: TR parameters from neighbors
+        RETURNS: TR parameters
+        '''
+        random_neighbor = np.random.choice(len(TR_innodes))
+        self.TR.set_weights(TR_innodes[random_neighbor])
+        sa = np.concatenate((state,team_action),axis=1)
+        mean_feature_vector = [np.mean(self.TR_feature_extractor(sa).numpy(),axis=0),np.array(1)]
+        TR_min =[]
+
+        for i,layer in enumerate(mean_feature_vector):
+            TR_vector = np.stack([item[-2+i]*layer for item in TR_innodes])
+            print(TR_vector)
+            TR_min.append(np.amin(TR_vector, axis=0))
+        self.TR.layers[-1].set_weights(TR_min)
+
+        return self.TR.get_weights()
+
+    def critic_set_weights(self,critic_weights_coop):
+        'Assigns some neighbors parameters to the critic and returns the hidden parameters'
+        random_neighbor = np.random.choice(len(critic_weights_coop))
+        self.critic.set_weights(critic_weights_coop[random_neighbor])
+
+        return self.critic.get_weights()
+
+    def TR_set_weights(self,TR_weights_coop):
+        'Assigns some neighbors parameters to the TR and returns the hidden parameters'
+        random_neighbor = np.random.choice(len(TR_weights_coop))
+        self.TR.set_weights(TR_weights_coop[random_neighbor])
+
+        return self.TR.get_weights()
+
+    def critic_update_local(self,states,new_states,local_rewards):
+        '''
+        Local stochastic update of the critic network
+        - performs a stochastic update of the critic network using local rewards
+        - evaluates a local TD target with a one-step lookahead
+        - applies an MSE gradient with the local TD target as a target value
+        ARGUMENTS: visited consecutive states, local rewards
+        '''
+        nV_local = self.critic_local(new_states).numpy()
+        TD_targets_local = local_rewards + self.gamma*nV_local
+        with tf.GradientTape() as tape:
+            V_local = self.critic_local(states)
+            critic_loss_local = self.mse(TD_targets_local,V_local)
+        critic_grad_local = tape.gradient(critic_loss_local,self.critic_local.trainable_weights)
+        self.optimizer_fast.apply_gradients(zip(critic_grad_local, self.critic_local.trainable_weights))
 
     def get_action(self,state,from_policy=False,mu=0.1):
         '''Choose an action at the current state

@@ -10,7 +10,7 @@ including the one studied in [[2]](#2). The repository contains folders whose de
 3) simulation_results - contains plots that show training performance
 4) training - contains functions for training agents
 
-To train agents and plot results, execute main.py and plot_results.py, respectively.
+To train agents, execute main.py.
 
 ## Multi-agent grid world: cooperative navigation
 We train five agents in a grid-world environment. Their original goal is to approach their desired position without colliding with other agents in the network.

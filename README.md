@@ -48,6 +48,11 @@ The folder with resilient agents contains the RPBCAC agent as well as an agent t
 
 ## References
 
+<a id="1">[1]</a>
+Figura, M., Lin, Y., Liu, J., Gupta, V.
+Resilient Consensus-based Multi-agent Reinforcement Learning with Function Approximation.
+arXiv preprint arXiv:2111.06776, 2021.
+
 <a id="2">[2]</a> 
 Figura, M., Kosaraju, K. C., and Gupta, V.
 Adversarial attacks in consensus-based multi-agent reinforcement learning.

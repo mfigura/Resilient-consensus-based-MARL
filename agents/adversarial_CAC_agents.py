@@ -204,7 +204,7 @@ class Greedy_CAC_agent():
 
         V = self.critic(s)
         nV = self.critic(ns)
-        TD_error=local_rewards + self.gamma * nV - V
+        TD_error = r_local + self.gamma * nV - V
         actor_loss = self.actor.train_on_batch(s,a_local,sample_weight=TD_error)
 
         return actor_loss

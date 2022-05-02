@@ -20,7 +20,7 @@ class Grid_World(gym.Env):
     """
     metadata = {'render.modes': ['console']}
 
-    def __init__(self, nrow = 5, ncol=5, n_agents = 1,desired_state = None,initial_state = None,randomize_state = False,scaling = False):
+    def __init__(self, nrow = 5, ncol=5, n_agents = 1, desired_state = None,initial_state = None,randomize_state = False,scaling = False):
         self.nrow = nrow
         self.ncol = ncol
         self.n_agents = n_agents
@@ -55,8 +55,8 @@ class Grid_World(gym.Env):
                        3 - UP
                        4 - STAY
         '''
-        row=local_state[0]
-        col=local_state[1]
+        row = local_state[0]
+        col = local_state[1]
         if local_action == 0:
             col = max(col - 1, 0)
         elif local_action == 1:
@@ -82,30 +82,30 @@ class Grid_World(gym.Env):
         Makes a transition to a new state and evaluates all rewards
         Arguments: global action
         '''
-        new_s=np.zeros((self.n_agents,self.n_states))
-
+        ns = np.zeros((self.n_agents,self.n_states))
+        'State transition'
         for node,s,a in zip(range(self.n_agents),self.state, global_action):
-            new_s[node]=self._state_transition(s,a)                                                     #State transition
-
+            ns[node] = self._state_transition(s,a)                                                     #State transition
+        'Rewards'
         for node in range(self.n_agents):
-            sub_s = np.delete(new_s,node,axis=0)
-            dist_agents = np.sum(abs(sub_s-new_s[node]),axis=1)                                         #Compute Manhattan distance between agents
-            collision = True if np.any(dist_agents==0) else False
-            #dist = np.sum(abs(self.state[node]-self.desired_state[node]))
-            dist_next = np.sum(abs(new_s[node]-self.desired_state[node]))                               #Compute Manhattan distance to the target at future state
-            self.reward[node] = (- dist_next                                                         #Reward for reaching the target
-                                 - int(collision)                                                  #Penalty for collision
-                                )
-        self.state = new_s
+            dist_agents = np.sort(np.sum(abs(ns-ns[node]),axis=1)).ravel()
+            dist_goal = np.sum(abs(self.state[node]-self.desired_state[node]))
+            dist_goal_next = np.sum(abs(ns[node]-self.desired_state[node]))
+            r_approach = dist_goal - dist_goal_next                                                 #Reward +1 for approaching, -1 for moving away'
+            r_wall = - int(dist_goal == dist_goal_next and global_action[node] != 4)                #Reward -1 for hitting the wall
+            r_target = int(dist_goal_next == 0)                                                     #Reward +1 for staying at the target
+            r_safe = - 1 / (3 ** dist_agents[1]) if self.n_agents > 1 else 0                        #Reward -1 for collision or -1/3 for being one cell away from another agent, etc.
+            self.reward[node] = r_approach + r_wall + r_target + r_safe
+        self.state = ns
         self.done = np.array_equal(self.state, self.desired_state)
 
     def get_data(self):
         '''
-        Returns scaled reward and state, and flags if the agents has reached the target
+        Returns scaled reward and state, and flags if the agents have reached the target
         '''
-        state_scaled = (self.state-self.mean_state)/self.std_state
-        reward_scaled = self.reward/10
-        return state_scaled,reward_scaled, self.done, {}
+        state_scaled = (self.state - self.mean_state) / self.std_state
+        reward_scaled = self.reward
+        return state_scaled, reward_scaled, self.done, {}
 
     def close(self):
         pass

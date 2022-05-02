@@ -122,10 +122,10 @@ class Malicious_CAC_agent():
         RETURNS: updated compromised critic hidden and output layer parameters, training loss
         '''
         nV = self.critic(ns)
-        TD_target = r_compromised + self.gamma * nV
-        critic_loss = self.critic.train_on_batch(s,TD_target)
+        TD_target_compromised = r_compromised + self.gamma * nV
+        loss = self.critic.train_on_batch(s,TD_target_compromised)
 
-        return self.critic.get_weights()
+        return self.critic.get_weights(), loss
 
     def critic_update_local(self,s,ns,r_local):
         '''
@@ -134,10 +134,11 @@ class Malicious_CAC_agent():
         - evaluates a local TD target with a one-step lookahead
         - applies an MSE gradient with the local TD target as a target value
         ARGUMENTS: visited consecutive states, local rewards
+        RETURNS: updated critic parameters
         '''
         nV = self.critic(ns)
-        TD_target = r_local + self.gamma * nV
-        critic_loss = self.critic_local.train_on_batch(s,TD_target)
+        local_TD_target = r_local + self.gamma * nV
+        self.critic_local.train_on_batch(s,local_TD_target)
 
     def TR_update_compromised(self,sa,r_compromised):
         '''
@@ -148,9 +149,9 @@ class Malicious_CAC_agent():
                     boolean to reset parameters to prior values
         RETURNS: updated compromised team reward hidden and output layer parameters, training loss
         '''
-        self.TR.train_on_batch(sa,r_compromised)
+        loss = self.TR.train_on_batch(sa,r_compromised)
 
-        return self.TR.get_weights()
+        return self.TR.get_weights(), loss
 
     def get_action(self,state,from_policy=False,mu=0.1):
         '''Choose an action at the current state
@@ -204,6 +205,7 @@ class Greedy_CAC_agent():
 
         V = self.critic(s)
         nV = self.critic(ns)
+        print(r_local.shape,V.shape)
         TD_error = r_local + self.gamma * nV - V
         actor_loss = self.actor.train_on_batch(s,a_local,sample_weight=TD_error)
 
@@ -218,12 +220,11 @@ class Greedy_CAC_agent():
         ARGUMENTS: visited consecutive states, local rewards
         RETURNS: updated critic parameters
         '''
-
         nV = self.critic(ns)
         local_TD_target = r_local + self.gamma * nV
         critic_loss = self.critic.train_on_batch(s,local_TD_target)
 
-        return self.critic.get_weights()
+        return self.critic.get_weights(), critic_loss
 
     def TR_update_local(self,sa,r_local):
         '''
@@ -235,7 +236,7 @@ class Greedy_CAC_agent():
         '''
         TR_loss = self.TR.train_on_batch(sa,r_local)
 
-        return self.TR.get_weights()
+        return self.TR.get_weights(), TR_loss
 
     def get_action(self,state,from_policy=False,mu=0.1):
         '''Choose an action at the current state

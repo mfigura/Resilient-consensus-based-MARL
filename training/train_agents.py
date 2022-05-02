@@ -101,12 +101,12 @@ def train_RPBCAC(env,agents,args):
                             x, TR_loss[node] = agents[node].TR_update_local(sa,r[:,node])
                             y, critic_loss[node] = agents[node].critic_update_local(s,ns,r[:,node])
                         elif args['agent_label'][node] == 'Greedy':
-                            x = agents[node].TR_update_local(sa,r[:,node])
-                            y = agents[node].critic_update_local(s,ns,r[:,node])
+                            x, TR_loss[node] = agents[node].TR_update_local(sa,r[:,node])
+                            y, critic_loss[node] = agents[node].critic_update_local(s,ns,r[:,node])
                         elif args['agent_label'][node] == 'Malicious':
                             agents[node].critic_update_local(s,ns,r[:,node])
-                            x = agents[node].TR_update_compromised(sa,-r_coop)
-                            y = agents[node].critic_update_compromised(s,ns,-r_coop)
+                            x, TR_loss[node] = agents[node].TR_update_compromised(sa,-r_coop)
+                            y, critic_loss[node] = agents[node].critic_update_compromised(s,ns,-r_coop)
                         elif args['agent_label'][node] == 'Faulty':
                             x = agents[node].get_TR_weights()
                             y = agents[node].get_critic_weights()

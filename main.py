@@ -23,9 +23,9 @@ if __name__ == '__main__':
 
     '''USER-DEFINED PARAMETERS'''
     parser = argparse.ArgumentParser(description='Provide parameters for training consensus AC agents')
-    parser.add_argument('--n_agents',help='total number of agents',type=int,default=3)
-    parser.add_argument('--agent_label', help='classification of each agent (Cooperative,Malicious,Faulty,Greedy)',type=str, default=['Faulty','Cooperative','Cooperative'])#,'Cooperative','Cooperative'])
-    parser.add_argument('--in_nodes',help='specify a list of neighbors that transmit values to each agent (include the index of the agent as the first element)',type=int,default=[[0,1],[1,0,2],[2,1]])#[[0,1,2,3],[1,2,3,4],[2,3,4,0],[3,4,0,1],[4,0,1,2]])
+    parser.add_argument('--n_agents',help='total number of agents',type=int,default=4)
+    parser.add_argument('--agent_label', help='classification of each agent (Cooperative,Malicious,Faulty,Greedy)',type=str, default=['Faulty','Greedy','Cooperative','Malicious'])#,'Cooperative','Cooperative'])
+    parser.add_argument('--in_nodes',help='specify a list of neighbors that transmit values to each agent (include the index of the agent as the first element)',type=int,default=[[0,1],[1,0,2],[2,1,3],[3,2]])#[[0,1,2,3],[1,2,3,4],[2,3,4,0],[3,4,0,1],[4,0,1,2]])
     parser.add_argument('--n_actions',help='size of action space of each agent',type=int,default=5)
     parser.add_argument('--n_states',help='state dimension of each agent',type=int,default=2)
     parser.add_argument('--n_episodes', help='Total number of episodes', type=int, default=1)

@@ -1,5 +1,4 @@
 import numpy as np
-import heapq
 import tensorflow as tf
 from tensorflow import keras
 
@@ -71,7 +70,7 @@ class RPBCAC_agent():
         weights = 1 / (2 * self.fast_lr * phi_norm)
         self.critic_features.trainable = False
         self.critic.compile(optimizer=self.optimizer_fast,loss=self.mse)
-        self.critic.fit(s,critic_agg,epochs=5,batch_size=32,verbose=0)
+        self.critic.fit(s,critic_agg,epochs=5,batch_size=100,verbose=0)
         self.critic_features.trainable = True
         self.critic.compile(optimizer=self.optimizer_fast,loss=self.mse)
 
@@ -86,7 +85,7 @@ class RPBCAC_agent():
         weights = 1 / (2 * self.fast_lr * f_norm)
         self.TR_features.trainable = False
         self.TR.compile(optimizer=self.optimizer_fast,loss=self.mse)
-        self.TR.fit(sa,TR_agg,epochs=5,batch_size=32,verbose=0)
+        self.TR.fit(sa,TR_agg,epochs=5,batch_size=100,verbose=0)
         self.TR_features.trainable = True
         self.TR.compile(optimizer=self.optimizer_fast,loss=self.mse)
 
@@ -119,11 +118,11 @@ class RPBCAC_agent():
         critic_weights_temp = self.critic.get_weights()
         nV = self.critic(ns)
         local_TD_target = r_local + self.gamma * nV
-        critic_loss = self.critic.fit(s,local_TD_target,epochs=1,verbose=0)
+        critic_loss = self.critic.train_on_batch(s,local_TD_target)
         critic_weights = self.critic.get_weights()
         self.critic.set_weights(critic_weights_temp)
 
-        return critic_weights, critic_loss.history['loss'][0]
+        return critic_weights, critic_loss
 
     def TR_update_local(self,sa,r_local):
         '''
@@ -135,11 +134,11 @@ class RPBCAC_agent():
         RETURNS: updated team reward parameters
         '''
         TR_weights_temp = self.TR.get_weights()
-        TR_loss = self.TR.fit(sa,r_local,epochs=1,verbose=0)
+        TR_loss = self.TR.train_on_batch(sa,r_local)
         TR_weights = self.TR.get_weights()
         self.TR.set_weights(TR_weights_temp)
 
-        return TR_weights, TR_loss.history['loss'][0]
+        return TR_weights, TR_loss
 
     def resilient_consensus_critic_hidden(self,critic_weights_innodes):
         '''

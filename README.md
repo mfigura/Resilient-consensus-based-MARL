@@ -14,7 +14,7 @@ To train agents, execute main.py.
 
 ## Multi-agent grid world: cooperative navigation
 We train five agents in a grid-world environment. Their original goal is to approach their desired position without colliding with other agents in the network.
-We design a grid world of dimension (6 x 6) and consider a reward function that penalizes the agents for distance from the target and colliding with other agents.
+We design a grid world of dimension (5 x 5) and consider a reward function that penalizes the agents for distance from the target and colliding with other agents.
 
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/illustrations/cooperative_navigation.jpg" width="440" align="left">
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/illustrations/com_graph.jpg" width="300" >
@@ -43,8 +43,6 @@ The simulation results below demonstrate very good performance of the RPBCAC wit
 ### 4) Three cooperative + one malicious
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/malicious_h0.png" width="300" align="left">
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/malicious_h1.png" width="300" >
-
-The folder with resilient agents contains the RPBCAC agent as well as an agent that applies the method of trimmed means in the consensus updates (RTMCAC).
 
 ## References
 

@@ -12,7 +12,7 @@ tf.get_logger().setLevel('ERROR')
 This file contains a function for training consensus AC agents in gym environments. It is designed for batch updates.
 '''
 
-def train_RPBCAC(env,agents,args):
+def train_RPBCAC(env,agents,args,exp_buffer=None):
     '''
     FUNCTION train_RBPCAC() - training a mixed cooperative and adversarial network of consensus AC agents including RPBCAC agents
     The agents apply actions sampled from the actor network and estimate online the team-average errors for the critic and team-average reward updates.
@@ -26,20 +26,26 @@ def train_RPBCAC(env,agents,args):
                user-defined parameters for the simulation
     '''
     paths = []
-    n_agents, n_states, n_actions = env.n_agents, args['n_states'], env.n_actions
+    n_agents, n_states = env.n_agents, args['n_states']
     n_coop = args['agent_label'].count('Cooperative')
-    gamma, eps = args['gamma'], args['eps']
+    gamma = args['gamma']
     in_nodes = args['in_nodes']
     max_ep_len, n_episodes, n_ep_fixed = args['max_ep_len'], args['n_episodes'], args['n_ep_fixed']
     n_epochs, batch_size, buffer_size = args['n_epochs'], args['batch_size'], args['buffer_size']
 
-    states, nstates, actions, rewards = [], [], [], []
+    if exp_buffer:
+        states = exp_buffer[0]
+        nstates = exp_buffer[1]
+        actions = exp_buffer[2]
+        rewards = exp_buffer[3]
+    else:
+        states, nstates, actions, rewards = [], [], [], []
     #---------------------------------------------------------------------------
     '                                 TRAINING                                 '
     #---------------------------------------------------------------------------
     for t in range(n_episodes):
 
-        j, ep_rewards, ep_returns = 0, 0, 0
+        j,  ep_returns = 0, 0
         est_returns, mean_true_returns, mean_true_returns_adv = [], 0, 0
         action, actor_loss, critic_loss, TR_loss = np.zeros(n_agents), np.zeros(n_agents), np.zeros(n_agents), np.zeros(n_agents)
         i = t % n_ep_fixed
@@ -47,9 +53,9 @@ def train_RPBCAC(env,agents,args):
         '                       BEGINNING OF EPISODE                           '
         #-----------------------------------------------------------------------
         env.reset()
-        state, reward, done, _ = env.get_data()
+        state, _ = env.get_data()
         #-----------------------------------------------------------------------
-        '       Evaluate expected retuns at the beginning of episode           '
+        '       Evaluate expected returns at the beginning of episode           '
         #-----------------------------------------------------------------------
         for node in range(n_agents):
             if args['agent_label'][node] == 'Cooperative':
@@ -59,11 +65,10 @@ def train_RPBCAC(env,agents,args):
         #-----------------------------------------------------------------------
         while j < max_ep_len:
             for node in range(n_agents):
-                  action[node] = agents[node].get_action(state.reshape(1,state.shape[0],state.shape[1]),from_policy=True,mu=eps)
+                  action[node] = agents[node].get_action(state.reshape(1,state.shape[0],state.shape[1]))
             env.step(action)
-            nstate, reward, done, _ = env.get_data()
-            ep_rewards += reward
-            ep_returns += reward*(gamma**j)
+            nstate, reward = env.get_data()
+            ep_returns += reward * (gamma ** j)
             j += 1
             #-----------------------------------------------------------------------
             '                    Update experience replay buffers                  '
@@ -80,26 +85,28 @@ def train_RPBCAC(env,agents,args):
             #------------------------------------------------------------------------
             if i == n_ep_fixed-1 and j == max_ep_len:
 
+                # Convert experiences to tensors
                 s = tf.convert_to_tensor(states,tf.float32)
                 ns = tf.convert_to_tensor(nstates,tf.float32)
                 r = tf.convert_to_tensor(rewards,tf.float32)
                 a = tf.convert_to_tensor(actions,tf.float32)
                 sa = tf.concat([s,a],axis=-1)
 
+                # Evaluate team-average reward of cooperative agents
                 r_coop = tf.zeros([r.shape[0],r.shape[2]],tf.float32)
                 for node in (x for x in range(n_agents) if args['agent_label'][x] == 'Cooperative'):
                     r_coop += r[:,node] / n_coop
 
                 for n in range(n_epochs):
-
                     critic_weights,TR_weights = [],[]
                     #--------------------------------------------------------------------
                     '             I) LOCAL CRITIC AND TEAM-AVERAGE REWARD UPDATES       '
                     #--------------------------------------------------------------------
                     for node in range(n_agents):
+                        r_applied = r_coop if args['common_reward'] else r[:,node]
                         if args['agent_label'][node] == 'Cooperative':
-                            x, TR_loss[node] = agents[node].TR_update_local(sa,r[:,node])
-                            y, critic_loss[node] = agents[node].critic_update_local(s,ns,r[:,node])
+                            x, TR_loss[node] = agents[node].TR_update_local(sa,r_applied)
+                            y, critic_loss[node] = agents[node].critic_update_local(s,ns,r_applied)
                         elif args['agent_label'][node] == 'Greedy':
                             x, TR_loss[node] = agents[node].TR_update_local(sa,r[:,node])
                             y, critic_loss[node] = agents[node].critic_update_local(s,ns,r[:,node])
@@ -139,15 +146,15 @@ def train_RPBCAC(env,agents,args):
                 #--------------------------------------------------------------------
                 '                           III) ACTOR UPDATES                      '
                 #--------------------------------------------------------------------
-                if t >= 199:
-                    for node in range(n_agents):
-                        if args['agent_label'][node] == 'Cooperative':
-                            actor_loss[node] = agents[node].actor_update(s,ns,sa,a[:,node])
-                        else:
-                            actor_loss[node] = agents[node].actor_update(s,ns,r[:,node],a[:,node])
+                for node in range(n_agents):
+                    if args['agent_label'][node] == 'Cooperative':
+                        actor_loss[node] = agents[node].actor_update(s[-max_ep_len*n_ep_fixed:],ns[-max_ep_len*n_ep_fixed:],sa[-max_ep_len*n_ep_fixed:],a[-max_ep_len*n_ep_fixed:,node])
+                    else:
+                        actor_loss[node] = agents[node].actor_update(s[-max_ep_len*n_ep_fixed:],ns[-max_ep_len*n_ep_fixed:],r[-max_ep_len*n_ep_fixed:,node],a[-max_ep_len*n_ep_fixed:,node])
                 #--------------------------------------------------------------------
                 '                   IV) EXPERIENCE REPLAY BUFFER UPDATES             '
                 #--------------------------------------------------------------------
+
                 if len(states) > buffer_size:
                     q = len(states) - buffer_size
                     del states[:q]
@@ -164,7 +171,6 @@ def train_RPBCAC(env,agents,args):
             else:
                 mean_true_returns_adv += ep_returns[node]/(n_agents-n_coop)
 
-
         print('| Episode: {} | Est. returns: {} | Returns: {} | Average critic loss: {} | Average TR loss: {} | Average actor loss: {} '.format(t,est_returns,mean_true_returns,critic_loss,TR_loss,actor_loss))
         path = {
                 "True_team_returns":mean_true_returns,
@@ -174,4 +180,5 @@ def train_RPBCAC(env,agents,args):
         paths.append(path)
 
     sim_data = pd.DataFrame.from_dict(paths)
-    return agents,sim_data
+    weights = [agent.get_parameters() for agent in agents]
+    return weights,sim_data

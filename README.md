@@ -26,7 +26,7 @@ of adversarial agents that are assumed to be present in the network. We consider
 3) One agent is faulty and does not have a well-defined objective. It shares fixed parameter values with other agents.
 4) One agent is strategic; it maximizes its own returns and leads the cooperative agents to minimize their returns. The strategic agent has knowledge of other agents' rewards and updates two critic estimates (one critic is used to improve the adversary's policy and the other to hurt the cooperative agents' performance).
 
-The simulation results below demonstrate very good performance of the RPBCAC with H=1 (right) compared to the non-resilient case with H=0 (left). The performance is measured by the episode returns.
+The simulation results below demonstrate very good performance of the RPBCAC with H=1 (right) compared to the non-resilient case with H=0 (left). The performance is measured by the episode returns. We run simulations where the cooperative agents receive a private reward (green + blue) and a team-average reward (red).
 
 ### 1) All cooperative
 <img src="https://github.com/mfigura/Resilient-consensus-actor-critic/blob/main/simulation_results/figures/coop_h0.png" width="300" align="left">

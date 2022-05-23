@@ -47,11 +47,11 @@ The simulation results below demonstrate very good performance of the RPBCAC wit
 ## References
 
 <a id="1">[1]</a>
-Figura, M., Lin, Y., Liu, J., Gupta, V.
+M. Figura, Y. Lin, J. Liu, V. Gupta,
 Resilient Consensus-based Multi-agent Reinforcement Learning with Function Approximation.
 arXiv preprint arXiv:2111.06776, 2021.
 
 <a id="2">[2]</a> 
-Figura, M., Kosaraju, K. C., and Gupta, V.
-Adversarial attacks in consensus-based multi-agent reinforcement learning.
-arXiv preprint arXiv:2103.06967, 2021.
+M. Figura, K. C. Kosaraju and V. Gupta,
+Adversarial attacks in consensus-based multi-agent reinforcement learning,
+2021 American Control Conference (ACC), 2021.

@@ -29,17 +29,18 @@ class Faulty_CAC_agent():
         '''
         Stochastic update of the actor network
         - performs a single update of the actor
-        - estimates team-average TD errors with a one-step lookahead
-        - applies the estimated team-average TD errors as sample weights to the cross-entropy gradient
-        ARGUMENTS: observations, new observations, state-actions pairs, local actions
+        - computes TD errors with a one-step lookahead
+        - applies the TD errors as sample weights for the cross-entropy gradient
+        ARGUMENTS: visited states, local rewards and actions
         RETURNS: training loss
         '''
+
         V = self.critic(s)
         nV = self.critic(ns)
-        global_TD_error = r_local + self.gamma * nV - V
-        actor_loss = self.actor.train_on_batch(s,a_local,sample_weight=global_TD_error)
+        TD_error = (r_local + self.gamma * nV - V).numpy()
+        training_stats = self.actor.fit(s,a_local,sample_weight=TD_error,batch_size=200,epochs=1,verbose=0)
 
-        return actor_loss
+        return training_stats.history['loss'][0]
 
     def get_critic_weights(self):
         '''
@@ -53,7 +54,7 @@ class Faulty_CAC_agent():
         '''
         return self.TR.get_weights()
 
-    def get_action(self,state,from_policy=False,mu=0.1):
+    def get_action(self,state,mu=0.1):
         '''Choose an action at the current state
             - set from_policy to True to sample from the actor
             - set from_policy to False to sample from the random uniform distribution over actions
@@ -65,6 +66,10 @@ class Faulty_CAC_agent():
         self.action = np.random.choice([action_from_policy,random_action], p = [1-mu,mu])
 
         return self.action
+
+    def get_parameters(self):
+
+        return [self.actor.get_weights(), self.critic.get_weights(), self.TR.get_weights()]
 
 class Malicious_CAC_agent():
     '''
@@ -82,34 +87,36 @@ class Malicious_CAC_agent():
                fast learning rate (for the critic and team reward networks)
                discount factor gamma
     '''
-    def __init__(self,actor,critic_local,critic,team_reward,slow_lr,fast_lr,gamma=0.95):
+    def __init__(self,actor,critic,team_reward,slow_lr,fast_lr,gamma=0.95):
         self.actor = actor
-        self.critic_local = critic_local
         self.critic = critic
         self.TR = team_reward
         self.gamma = gamma
         self.n_actions=self.actor.output_shape[1]
 
         self.actor.compile(optimizer=keras.optimizers.Adam(learning_rate=slow_lr),loss=keras.losses.SparseCategoricalCrossentropy())
-        self.critic_local.compile(optimizer=keras.optimizers.SGD(learning_rate=fast_lr),loss=keras.losses.MeanSquaredError())
         self.critic.compile(optimizer=keras.optimizers.SGD(learning_rate=fast_lr),loss=keras.losses.MeanSquaredError())
+        self.critic_local_weights = self.critic.get_weights()
         self.TR.compile(optimizer=keras.optimizers.SGD(learning_rate=fast_lr),loss=keras.losses.MeanSquaredError())
 
     def actor_update(self,s,ns,r_local,a_local):
         '''
         Stochastic update of the actor network
         - performs a single update of the actor
-        - estimates team-average TD errors with a one-step lookahead
-        - applies the estimated team-average TD errors as sample weights to the cross-entropy gradient
-        ARGUMENTS: observations, new observations, state-actions pairs, local actions
+        - computes TD errors with a one-step lookahead
+        - applies the TD errors as sample weights for the cross-entropy gradient
+        ARGUMENTS: visited states, local rewards and actions
         RETURNS: training loss
         '''
+        weights_temp = self.critic.get_weights()
+        self.critic.set_weights(self.critic_local_weights)
         V = self.critic(s)
         nV = self.critic(ns)
-        global_TD_error = r_local + self.gamma * nV - V
-        actor_loss = self.actor.train_on_batch(s,a_local,sample_weight=global_TD_error)
+        TD_error = (r_local + self.gamma * nV - V).numpy()
+        training_stats = self.actor.fit(s,a_local,sample_weight=TD_error,batch_size=200,epochs=1,verbose=0)
+        self.critic.set_weights(weights_temp)
 
-        return actor_loss
+        return training_stats.history['loss'][0]
 
     def critic_update_compromised(self,s,ns,r_compromised):
         '''
@@ -123,9 +130,9 @@ class Malicious_CAC_agent():
         '''
         nV = self.critic(ns)
         TD_target_compromised = r_compromised + self.gamma * nV
-        loss = self.critic.train_on_batch(s,TD_target_compromised)
+        training_stats = self.critic.fit(s,TD_target_compromised,epochs=10,batch_size=32,verbose=0)
 
-        return self.critic.get_weights(), loss
+        return self.critic.get_weights(), training_stats.history["loss"][0]
 
     def critic_update_local(self,s,ns,r_local):
         '''
@@ -136,9 +143,13 @@ class Malicious_CAC_agent():
         ARGUMENTS: visited consecutive states, local rewards
         RETURNS: updated critic parameters
         '''
+        weights_temp = self.critic.get_weights()
+        self.critic.set_weights(self.critic_local_weights)
         nV = self.critic(ns)
         local_TD_target = r_local + self.gamma * nV
-        self.critic_local.train_on_batch(s,local_TD_target)
+        self.critic.fit(s,local_TD_target,epochs=10,batch_size=32,verbose=0)
+        self.critic_local_weights = self.critic.get_weights()
+        self.critic.set_weights(weights_temp)
 
     def TR_update_compromised(self,sa,r_compromised):
         '''
@@ -149,11 +160,11 @@ class Malicious_CAC_agent():
                     boolean to reset parameters to prior values
         RETURNS: updated compromised team reward hidden and output layer parameters, training loss
         '''
-        loss = self.TR.train_on_batch(sa,r_compromised)
+        training_stats = self.TR.fit(sa,r_compromised,epochs=10,batch_size=32,verbose=0)
 
-        return self.TR.get_weights(), loss
+        return self.TR.get_weights(), training_stats.history["loss"][0]
 
-    def get_action(self,state,from_policy=False,mu=0.1):
+    def get_action(self,state,mu=0.1):
         '''Choose an action at the current state
             - set from_policy to True to sample from the actor
             - set from_policy to False to sample from the random uniform distribution over actions
@@ -165,6 +176,10 @@ class Malicious_CAC_agent():
         self.action = np.random.choice([action_from_policy,random_action], p = [1-mu,mu])
 
         return self.action
+
+    def get_parameters(self):
+
+        return [self.actor.get_weights(), self.critic.get_weights(), self.TR.get_weights(), self.critic_local_weights]
 
 class Greedy_CAC_agent():
     '''
@@ -205,11 +220,10 @@ class Greedy_CAC_agent():
 
         V = self.critic(s)
         nV = self.critic(ns)
-        print(r_local.shape,V.shape)
-        TD_error = r_local + self.gamma * nV - V
-        actor_loss = self.actor.train_on_batch(s,a_local,sample_weight=TD_error)
+        TD_error = (r_local + self.gamma * nV - V).numpy()
+        training_stats = self.actor.fit(s,a_local,sample_weight=TD_error,batch_size=200,epochs=1,verbose=0)
 
-        return actor_loss
+        return training_stats.history['loss'][0]
 
     def critic_update_local(self,s,ns,r_local):
         '''
@@ -222,9 +236,9 @@ class Greedy_CAC_agent():
         '''
         nV = self.critic(ns)
         local_TD_target = r_local + self.gamma * nV
-        critic_loss = self.critic.train_on_batch(s,local_TD_target)
+        training_stats = self.critic.fit(s,local_TD_target,epochs=10,batch_size=32,verbose=0)
 
-        return self.critic.get_weights(), critic_loss
+        return self.critic.get_weights(), training_stats.history['loss'][0]
 
     def TR_update_local(self,sa,r_local):
         '''
@@ -234,11 +248,11 @@ class Greedy_CAC_agent():
         ARGUMENTS: state-action pairs, local rewards
         RETURNS: updated team reward parameters
         '''
-        TR_loss = self.TR.train_on_batch(sa,r_local)
+        training_stats = self.TR.fit(sa,r_local,epochs=10,batch_size=32,verbose=0)
 
-        return self.TR.get_weights(), TR_loss
+        return self.TR.get_weights(), training_stats.history['loss'][0]
 
-    def get_action(self,state,from_policy=False,mu=0.1):
+    def get_action(self,state,mu=0.1):
         '''Choose an action at the current state
             - set from_policy to True to sample from the actor
             - set from_policy to False to sample from the random uniform distribution over actions
@@ -255,3 +269,7 @@ class Greedy_CAC_agent():
         self.action = np.random.choice([action_from_policy,random_action], p = [1-mu,mu])
 
         return self.action
+
+    def get_parameters(self):
+
+        return [self.actor.get_weights(), self.critic.get_weights(), self.TR.get_weights()]

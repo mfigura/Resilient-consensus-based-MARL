@@ -36,8 +36,6 @@ class RPBCAC_agent():
         self.optimizer_fast = keras.optimizers.SGD(learning_rate=fast_lr)
         self.mse = keras.losses.MeanSquaredError()
         self.actor.compile(optimizer=keras.optimizers.Adam(learning_rate=slow_lr),loss=keras.losses.SparseCategoricalCrossentropy())
-        self.TR.compile(optimizer=self.optimizer_fast,loss=self.mse)
-        self.critic.compile(optimizer=self.optimizer_fast,loss=self.mse)
         self.critic_features = keras.Model(self.critic.inputs,self.critic.layers[-2].output)
         self.TR_features = keras.Model(self.TR.inputs,self.TR.layers[-2].output)
 
@@ -70,9 +68,7 @@ class RPBCAC_agent():
         weights = 1 / (2 * self.fast_lr * phi_norm)
         self.critic_features.trainable = False
         self.critic.compile(optimizer=self.optimizer_fast,loss=self.mse)
-        self.critic.fit(s,critic_agg,epochs=5,batch_size=100,verbose=0)
-        self.critic_features.trainable = True
-        self.critic.compile(optimizer=self.optimizer_fast,loss=self.mse)
+        self.critic.train_on_batch(s,critic_agg,sample_weight=weights)
 
     def TR_update_team(self,sa,TR_agg):
         '''
@@ -85,11 +81,9 @@ class RPBCAC_agent():
         weights = 1 / (2 * self.fast_lr * f_norm)
         self.TR_features.trainable = False
         self.TR.compile(optimizer=self.optimizer_fast,loss=self.mse)
-        self.TR.fit(sa,TR_agg,epochs=5,batch_size=100,verbose=0)
-        self.TR_features.trainable = True
-        self.TR.compile(optimizer=self.optimizer_fast,loss=self.mse)
+        self.TR.train_on_batch(sa,TR_agg,sample_weight=weights)
 
-    def actor_update(self,s,ns,sa,a_local):
+    def actor_update(self,s,ns,sa,a_local,pretrain=False):
         '''
         Stochastic update of the actor network
         - performs a single update of the actor
@@ -101,9 +95,10 @@ class RPBCAC_agent():
         r_team = self.TR(sa)
         V = self.critic(s)
         nV = self.critic(ns)
-        global_TD_error = r_team + self.gamma * nV - V
+        global_TD_error = (r_team + self.gamma * nV - V).numpy()
+        training_loss = self.actor.train_on_batch(s,a_local,sample_weight=global_TD_error)
 
-        return self.actor.train_on_batch(s,a_local,sample_weight=global_TD_error)
+        return training_loss
 
     def critic_update_local(self,s,ns,r_local):
         '''
@@ -118,11 +113,13 @@ class RPBCAC_agent():
         critic_weights_temp = self.critic.get_weights()
         nV = self.critic(ns)
         local_TD_target = r_local + self.gamma * nV
-        critic_loss = self.critic.train_on_batch(s,local_TD_target)
+        self.critic_features.trainable = True
+        self.critic.compile(optimizer=self.optimizer_fast,loss=self.mse)
+        training_hist = self.critic.fit(s,local_TD_target,batch_size=s.shape[0],epochs=5,verbose=0)
         critic_weights = self.critic.get_weights()
         self.critic.set_weights(critic_weights_temp)
 
-        return critic_weights, critic_loss
+        return critic_weights, training_hist.history['loss'][0]
 
     def TR_update_local(self,sa,r_local):
         '''
@@ -134,11 +131,13 @@ class RPBCAC_agent():
         RETURNS: updated team reward parameters
         '''
         TR_weights_temp = self.TR.get_weights()
-        TR_loss = self.TR.train_on_batch(sa,r_local)
+        self.TR_features.trainable = True
+        self.TR.compile(optimizer=self.optimizer_fast,loss=self.mse)
+        training_hist = self.TR.fit(sa,r_local,batch_size=sa.shape[0],epochs=5,verbose=0)
         TR_weights = self.TR.get_weights()
         self.TR.set_weights(TR_weights_temp)
 
-        return TR_weights, TR_loss
+        return TR_weights, training_hist.history['loss'][0]
 
     def resilient_consensus_critic_hidden(self,critic_weights_innodes):
         '''
@@ -175,14 +174,14 @@ class RPBCAC_agent():
         ARGUMENTS: states, list of critic parameters received from neighbors (the agent's parameters always appear in the first index)
         RETURNS: aggregated critic estimate
         '''
-        critic_weights_temp = self.critic.get_weights()
+        critic_weights_temp = self.critic.layers[-1].get_weights()
         critics = []
         for weights in critic_weights_innodes:
-            self.critic.set_weights(weights)
+            self.critic.layers[-1].set_weights(weights[-2:])
             critics.append(self.critic(s))
         critics = tf.convert_to_tensor(critics)
         critic_agg = self._resilient_aggregation(critics)
-        self.critic.set_weights(critic_weights_temp)
+        self.critic.layers[-1].set_weights(critic_weights_temp)
 
         return critic_agg
 
@@ -195,18 +194,18 @@ class RPBCAC_agent():
         ARGUMENTS: states, list of team-average reward function parameters received from neighbors (the agent's parameters always appear in the first index)
         RETURNS: aggregated team-average reward estimate
         '''
-        TR_weights_temp = self.TR.get_weights()
+        TR_weights_temp = self.TR.layers[-1].get_weights()
         TRs = []
         for weights in TR_weights_innodes:
-            self.TR.set_weights(weights)
+            self.TR.layers[-1].set_weights(weights[-2:])
             TRs.append(self.TR(sa))
         TRs = tf.convert_to_tensor(TRs)
         TR_agg = self._resilient_aggregation(TRs)
-        self.TR.set_weights(TR_weights_temp)
+        self.TR.layers[-1].set_weights(TR_weights_temp)
 
         return TR_agg
 
-    def get_action(self,state,from_policy=True,mu=0.1):
+    def get_action(self,state,mu=0.1):
         '''Choose an action at the current state
             - set from_policy to True to sample from the actor
             - set from_policy to False to sample from the random uniform distribution over actions
@@ -218,3 +217,7 @@ class RPBCAC_agent():
         self.action = np.random.choice([action_from_policy,random_action], p = [1-mu,mu])
 
         return self.action
+
+    def get_parameters(self):
+
+        return [self.actor.get_weights(), self.critic.get_weights(), self.TR.get_weights()]
